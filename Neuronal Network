@@ -1,59 +1,72 @@
 import math
-import random 
+import random
 
 class Neurona:
     def __init__(self, n_inputs):
+        # Inicialització de les variables de la neurona
         self.n_inputs = n_inputs
-        self.inputs = [1 for _ in range(n_inputs)]
+        self.inputs = [random.random() for _ in range(n_inputs)]
         self.weights = [random.random() for _ in range(n_inputs)]
         self.b = 1
 
     def sigmoid(self, inputs, weights):
+        # Càlculs funció sigmoide
         x = sum(inputs[i] * weights[i] for i in range(self.n_inputs))
         x = x + self.b
         return 1 / (1 + math.exp(-x))
 
 class NeuronalNetwork:
     def __init__(self):
-        self.input_layer = [Neurona(2) for _ in range(2)]
-        self.hidden_layer = [Neurona(2) for _ in range(3)]
-        self.output_layer = [Neurona(3) for _ in range(2)]
-        self.learning_rate = 0.25
+        # Crear xarxa neuronal
+        self.layer1 = [Neurona(2) for _ in range(3)]  # Primera capa 3 neurones i 2 entrades
+        self.layer2 = [Neurona(3) for _ in range(2)]  # Segona capa 2 neurones i 3 entrades
 
-    def forward_propagation(self, inputs):
-        hidden_outputs = [neuron.sigmoid(inputs, neuron.weights) for neuron in self.hidden_layer]
-        self.outputs = [neuron.sigmoid(hidden_outputs, neuron.weights) for neuron in self.output_layer]
-        return self.outputs
+    def forward_propagation(self, x):
+        # Propagació (endavant) de la xarxa
+        s1 = [neuron.sigmoid(x, neuron.weights) for neuron in self.layer1]
+        s2 = [neuron.sigmoid(s1, neuron.weights) for neuron in self.layer2]
+        return s2
 
-    def backward_propagation(self, inputs, targets):
-        outputs = self.forward_propagation(inputs)
-        while outputs != targets:
-            deltas_output_layer = [outputs[i] - targets[i] for i in range(2)]
-            deltas_hidden_layer = [sum(neuron.weights[j] * deltas_output_layer[j] for j in range(2)) for neuron in self.hidden_layer]
+    def backward_propagation(self, x, y, lr):
+        # Propagació (enrere) de la xarxa
+        # Càlcul funció sigmoide
+        s1 = [neuron.sigmoid(x, neuron.weights) for neuron in self.layer1]
+        s2 = [neuron.sigmoid(s1, neuron.weights) for neuron in self.layer2]
 
-            for i, neuron in enumerate(self.output_layer):
-                for j in range(2):
-                    delta_w = deltas_output_layer[j] * self.learning_rate * neuron.inputs[j]
-                    delta_b = deltas_output_layer[j] * self.learning_rate
-                  neuron.weights[j] = neuron.weights[j] - delta_w
-                    neuron.b = neuron.b - delta_b
+        # Càlcul deltes layer 2
+        delta_s2 = [a - y for a, y in zip(s2, y)]
+        delta_z2 = [delta_s2[i] * s2[i] * (1 - s2[i]) for i in range(len(self.layer2))]
+        
+        # Actualització pesos layer 2
+        for i in range(len(self.layer2)):
+            for j in range(self.layer2[i].n_inputs):
+                self.layer2[i].weights[j] = self.layer2[i].weights[j] - (lr * delta_z2[i] * s1[j])
 
-            for i, neuron in enumerate(self.hidden_layer):
-                for j in range(2):
-                    delta_w = deltas_hidden_layer[i] * self.learning_rate * neuron.inputs[j]
-                    delta_b = deltas_hidden_layer[i] * self.learning_rate
-                    neuron.weights[j] = neuron.weights[j] - delta_w
-                    neuron.b = neuron.b - delta_b
+        # Càlcul deltes layer 1
+        delta_s1 = [sum(self.layer2[i].weights[j] * delta_z2[i] for i in range(len(self.layer2))) for j in range(len(self.layer1))]
+        delta_z1 = [delta_s1[j] * s1[j] * (1 - s1[j]) for j in range(len(self.layer1))]
 
-            outputs = self.forward_propagation(inputs)
+        # Actualització pesos layer 1
+        for i in range(len(self.layer1)):
+            for j in range(self.layer1[i].n_inputs):
+                self.layer1[i].weights[j] = self.layer1[i].weights[j] - (lr * delta_z1[i] * x[j])
+
+    def train(self, X, Y, reps, lr):
+        # Entrenament de la xarxa neuronal
+        for rep in range(reps):
+            for x, y in zip(X, Y):
+                self.backward_propagation(x, y, lr)
+
+
+X = [[0, 0], [0, 1], [1, 0], [1, 1]]  # Entrades
+Y = [[0, 0], [1, 0], [1, 0], [0, 1]]  # Sortides esperades
 
 nn = NeuronalNetwork()
-inputs = [0, 1]
-targets = [0, 1]  
-while nn.forward_propagation(inputs) != targets:
-    nn.backward_propagation(inputs, targets)
-    hidden_layer_results = [neuron.sigmoid(inputs, neuron.weights) for neuron in nn.hidden_layer]
-    output_layer_results = nn.forward_propagation(inputs)
+nn.train(X, Y, 5000, 0.25)
 
-print("Hidden layer results:", hidden_layer_results)
-print("Output layer results:", output_layer_results)
+for x, y in zip(X, Y):
+    y_pred = nn.forward_propagation(x)
+    print(f"Input: {x}")
+    print(f"Expected Output: {y}")
+    print(f"Predicted Output: {y_pred}\n")
+
